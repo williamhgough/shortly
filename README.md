@@ -43,14 +43,13 @@ Then, to use the short URL, simply paste the `short_url` provided by the API in 
 To run the project tests with coverage, execute the following:
 
 ```bash
-go test -v -cover
-
-...
-...
-
-PASS
-coverage: 82.0% of statements
-ok      github.com/williamhgough/shortly 0.059s
+go test ./... -cover
+?       github.com/williamhgough/shortly/cmd/shortly    [no test files]
+?       github.com/williamhgough/shortly/pkg/adding     [no test files]
+ok      github.com/williamhgough/shortly/pkg/hashing    0.003s  coverage: 80.0% of statements
+ok      github.com/williamhgough/shortly/pkg/http/rest  0.007s  coverage: 75.0% of statements
+?       github.com/williamhgough/shortly/pkg/redirect   [no test files]
+ok      github.com/williamhgough/shortly/pkg/storage/memory     0.009s  coverage: 100.0% of statements
 ```
 
 ## Design Choices
