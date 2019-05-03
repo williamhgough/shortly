@@ -1,4 +1,4 @@
-package shortly
+package hashing
 
 import (
 	"fmt"
@@ -7,23 +7,23 @@ import (
 	"github.com/speps/go-hashids"
 )
 
-// Hasher is a simple interface that should allow
+// Service is a simple interface that should allow
 // for us to swap out our chosen hashing library
 // or method in the future.
-type Hasher interface {
+type Service interface {
 	Generate(salt string, t time.Time) (string, error)
 }
 
-// Simple hasher implements the Hasher interface and
+// Simple hasher implements the Service interface and
 // wraps the following library:
 //  - https://github.com/speps/go-hashids
 type simpleHasher struct{}
 
-// newSimpleHasher returns a pointer to a new instance
+// NewSimpleHasher returns a pointer to a new instance
 // of a simpleHasher. Method exists to support reducing
 // code changes if simpleHasher changes under the hood.
 // For example, if a new dependency was added to the struct.
-func newSimpleHasher() *simpleHasher {
+func NewSimpleHasher() Service {
 	return &simpleHasher{}
 }
 

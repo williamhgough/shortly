@@ -1,4 +1,4 @@
-package shortly
+package rest
 
 import (
 	"io"
@@ -6,18 +6,22 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/julienschmidt/httprouter"
+	"github.com/williamhgough/shortly/pkg/adding"
+	"github.com/williamhgough/shortly/pkg/hashing"
+	"github.com/williamhgough/shortly/pkg/redirect"
+	"github.com/williamhgough/shortly/pkg/storage/memory"
 )
 
-var s *Service
-
-func init() {
-	s = New(8080)
-	go s.Start()
-}
+var (
+	mem        = memory.NewMapRepository()
+	adder      = adding.NewService(mem, hashing.NewSimpleHasher())
+	redirecter = redirect.NewService(mem)
+)
 
 func TestService_generateURLHandler(t *testing.T) {
-	// set some dummy data
-	s.db.Set("123456", &URLObject{
+	mem.Set("123456", &adding.URLObject{
 		ID:          "123456",
 		OriginalURL: "http://google.com",
 		ShortURL:    "http://short.ly/123456",
@@ -61,7 +65,11 @@ func TestService_generateURLHandler(t *testing.T) {
 			r := httptest.NewRequest(tt.method, "/api/v1/shorten", tt.input)
 			r.URL.Scheme = "http"
 			r.URL.Host = "short.ly"
-			s.generateURLHandler(w, r)
+			p := httprouter.Params{}
+
+			generateURLHandler(adder)(w, r, p)
+
+			t.Logf(w.Body.String())
 
 			if w.Result().StatusCode != tt.expectedStatus {
 				t.Logf("got %d, wanted: %d", w.Result().StatusCode, tt.expectedStatus)
@@ -72,8 +80,7 @@ func TestService_generateURLHandler(t *testing.T) {
 }
 
 func TestService_redirectHandler(t *testing.T) {
-	// set some dummy data
-	s.db.Set("123456", &URLObject{
+	mem.Set("123456", &adding.URLObject{
 		ID:          "123456",
 		OriginalURL: "http://google.com",
 		ShortURL:    "http://short.ly/123456",
@@ -82,40 +89,41 @@ func TestService_redirectHandler(t *testing.T) {
 	tests := []struct {
 		name           string
 		method         string
-		url            string
 		expectedStatus int
+		ID             string
 	}{
 		{
 			"can redirect to original url",
 			http.MethodGet,
-			"/123456",
 			http.StatusMovedPermanently,
+			"123456",
 		},
 		{
 			"Incorrect method not allowed",
 			http.MethodPost,
-			"/123456",
 			http.StatusMethodNotAllowed,
+			"123456",
 		},
 		{
 			"No ID given returns http.StatusBadRequest",
 			http.MethodGet,
-			"/",
 			http.StatusBadRequest,
+			"",
 		},
 		{
 			"Non-existent ID gives http.StatusNoContent",
 			http.MethodGet,
-			"/abcdef",
 			http.StatusNoContent,
+			"abcdef",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			r := httptest.NewRequest(tt.method, tt.url, nil)
-			s.redirectHandler(w, r)
+			r := httptest.NewRequest(tt.method, "/"+tt.ID, nil)
+
+			redirectHandler(redirecter)(w, r, httprouter.Params{{Key: "id", Value: tt.ID}})
 
 			if w.Result().StatusCode != tt.expectedStatus {
 				t.Logf("got %d, wanted: %d", w.Result().StatusCode, tt.expectedStatus)
